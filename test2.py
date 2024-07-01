@@ -1,48 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # PaddleOCR with OpenVINO™
-# 
-# This demo shows how to run PP-OCR model on OpenVINO natively. Instead of exporting the PaddlePaddle model to ONNX and then converting to the OpenVINO Intermediate Representation (OpenVINO IR) format with model conversion API, you can now read directly from the PaddlePaddle Model without any conversions. [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) is an ultra-light OCR model trained with PaddlePaddle deep learning framework, that aims to create multilingual and practical OCR tools. 
-# 
-# The PaddleOCR pre-trained model used in the demo refers to the *"Chinese and English ultra-lightweight PP-OCR model (9.4M)"*. More open source pre-trained models can be downloaded at [PaddleOCR GitHub](https://github.com/PaddlePaddle/PaddleOCR) or [PaddleOCR Gitee](https://gitee.com/paddlepaddle/PaddleOCR). Working pipeline of the PaddleOCR is as follows:
-# 
-# <img align='center' src= "https://raw.githubusercontent.com/yoyowz/classification/master/images/pipeline.png" alt="drawing" width="1000"/>
-# 
-# > **NOTE**: To use this notebook with a webcam, you need to run the notebook on a computer with a webcam. If you run the notebook on a server, the webcam will not work. You can still do inference on a video file.
-# 
-# 
-# #### Table of contents:
-# 
-# - [Imports](#Imports)
-#     - [Select inference device](#Select-inference-device)
-#     - [Models for PaddleOCR](#Models-for-PaddleOCR)
-#         - [Download the Model for Text **Detection**](#Download-the-Model-for-Text-**Detection**)
-#         - [Load the Model for Text **Detection**](#Load-the-Model-for-Text-**Detection**)
-#         - [Download the Model for Text **Recognition**](#Download-the-Model-for-Text-**Recognition**)
-#         - [Load the Model for Text **Recognition** with Dynamic Shape](#Load-the-Model-for-Text-**Recognition**-with-Dynamic-Shape)
-#     - [Preprocessing Image Functions for Text Detection and Recognition](#Preprocessing-Image-Functions-for-Text-Detection-and-Recognition)
-#     - [Postprocessing Image for Text Detection](#Postprocessing-Image-for-Text-Detection)
-#     - [Main Processing Function for PaddleOCR](#Main-Processing-Function-for-PaddleOCR)
-# - [Run Live PaddleOCR with OpenVINO](#Run-Live-PaddleOCR-with-OpenVINO)
-# 
-# 
-
-# In[ ]:
-
-
-# get_ipython().run_line_magic('pip', 'install -q "openvino>=2023.1.0"')
-# get_ipython().run_line_magic('pip', 'install -q "paddlepaddle>=2.5.1"')
-# get_ipython().run_line_magic('pip', 'install -q "pyclipper>=1.2.1" "shapely>=1.7.1" tqdm')
-
-
-# ## Imports
-# [back to top ⬆️](#Table-of-contents:)
-# 
-
-# In[ ]:
-
-
 import cv2
 import numpy as np
 import paddle
@@ -56,9 +11,6 @@ import tarfile
 import openvino as ov
 from IPython import display
 import copy
-
-
-# In[ ]:
 
 
 # Import local modules
@@ -77,11 +29,8 @@ import pre_post_processing as processing
 
 
 # ### Select inference device
-# [back to top ⬆️](#Table-of-contents:)
-# 
 # select device from dropdown list for running inference using OpenVINO
 
-# In[ ]:
 
 
 import ipywidgets as widgets
@@ -99,15 +48,6 @@ device
 
 
 # ### Models for PaddleOCR
-# [back to top ⬆️](#Table-of-contents:)
-# 
-# PaddleOCR includes two parts of deep learning models, text detection and text recognition. Pre-trained models used in the demo are downloaded and stored in the "model" folder.
-# 
-# Only a few lines of code are required to run the model. First, initialize the runtime for inference. Then, read the network architecture and model weights from the `.pdmodel` and `.pdiparams` files to load to CPU/GPU.
-
-# In[ ]:
-
-
 # Define the function to download text detection and recognition models from PaddleOCR resources.
 
 
@@ -140,12 +80,6 @@ def run_model_download(model_url: str, model_file_path: Path) -> None:
 
 
 # #### Download the Model for Text **Detection**
-# [back to top ⬆️](#Table-of-contents:)
-# 
-
-# In[ ]:
-
-
 # A directory where the model will be downloaded.
 
 det_model_url = "https://storage.openvinotoolkit.org/repositories/openvino_notebooks/models/paddle-ocr/ch_PP-OCRv3_det_infer.tar"
@@ -155,11 +89,6 @@ run_model_download(det_model_url, det_model_file_path)
 
 
 # #### Load the Model for Text **Detection**
-# [back to top ⬆️](#Table-of-contents:)
-# 
-
-# In[ ]:
-
 
 # Initialize OpenVINO Runtime for text detection.
 core = ov.Core()
@@ -172,11 +101,6 @@ det_output_layer = det_compiled_model.output(0)
 
 
 # #### Download the Model for Text **Recognition**
-# [back to top ⬆️](#Table-of-contents:)
-# 
-
-# In[ ]:
-
 
 rec_model_url = "https://storage.openvinotoolkit.org/repositories/openvino_notebooks/models/paddle-ocr/ch_PP-OCRv3_rec_infer.tar"
 rec_model_file_path = Path("model/ch_PP-OCRv3_rec_infer/inference.pdmodel")
@@ -185,16 +109,11 @@ run_model_download(rec_model_url, rec_model_file_path)
 
 
 # #### Load the Model for Text **Recognition** with Dynamic Shape
-# [back to top ⬆️](#Table-of-contents:)
-# 
 
 # Input to text recognition model refers to detected bounding boxes with different image sizes, for example, dynamic input shapes. Hence:
 # 
 # 1. Input dimension with dynamic input shapes needs to be specified before loading text recognition model.
 # 2. Dynamic shape is specified by assigning -1 to the input dimension or by setting the upper bound of the input dimension using, for example, `Dimension(1, 512)`.
-
-# In[ ]:
-
 
 # Read the model and corresponding weights from a file.
 rec_model = core.read_model(model=rec_model_file_path)
@@ -213,9 +132,6 @@ rec_output_layer = rec_compiled_model.output(0)
 
 
 # ### Preprocessing Image Functions for Text Detection and Recognition
-# [back to top ⬆️](#Table-of-contents:)
-# 
-
 # Define preprocessing functions for text detection and recognition:
 # 1. Preprocessing for text detection: resize and normalize input images.
 # 2. Preprocessing for text recognition: resize and normalize detected box images to the same size (for example, `(3, 32, 320)` size for images with Chinese text) for easy batching in inference.
@@ -332,11 +248,6 @@ def batch_text_box(img_crop_list, img_num, indices, beg_img_no, batch_num):
 
 
 # ### Postprocessing Image for Text Detection
-# [back to top ⬆️](#Table-of-contents:)
-# 
-
-# In[ ]:
-
 
 def post_processing_detection(frame, det_results):
     """
@@ -374,18 +285,12 @@ def post_processing_detection(frame, det_results):
 
 
 # ### Main Processing Function for PaddleOCR
-# [back to top ⬆️](#Table-of-contents:)
-# 
-
 # Run `paddleOCR` function in different operations, either a webcam or a video file. See the list of procedures below:
 # 
 # 1. Create a video player to play with target fps (`utils.VideoPlayer`).
 # 2. Prepare a set of frames for text detection and recognition.
 # 3. Run AI inference for both text detection and recognition.
 # 4. Visualize the results.
-
-# In[ ]:
-
 
 # Download font and a character dictionary for printing OCR results.
 font_path = utils.download_file(
@@ -557,19 +462,6 @@ def run_paddle_ocr(source=0, flip=False, use_popup=False, skip_first_frames=0):
 
 
 # ## Run Live PaddleOCR with OpenVINO
-# [back to top ⬆️](#Table-of-contents:)
-# 
-
-# Use a webcam as the video input. By default, the primary webcam is set with `source=0`. If you have multiple webcams, each one will be assigned a consecutive number starting at 0. Set `flip=True` when using a front-facing camera. Some web browsers, especially Mozilla Firefox, may cause flickering. If you experience flickering, set `use_popup=True`. 
-# 
-# > **NOTE**: Popup mode may not work if you run this notebook on a remote computer.
-# 
-# If you do not have a webcam, you can still run this demo with a video file. Any [format supported by OpenCV](https://docs.opencv.org/4.5.1/dd/d43/tutorial_py_video_display.html) will work.
-# 
-# Run live PaddleOCR:
-
-# In[ ]:
-
 
 USE_WEBCAM = True
 
